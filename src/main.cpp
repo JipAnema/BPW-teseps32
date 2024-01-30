@@ -8,6 +8,7 @@ String header;
 int count = 0;
 unsigned long interrupt_time;
 unsigned long prev_interrupt_time;
+String servername = "https://webhook.site/8b447697-3f95-4b4c-baee-eeb314c8570f";
 String afstand(int revolutions);
 const char* ssid     = "Test";
 const char* password = "123456789";
@@ -37,6 +38,7 @@ void setup() {
   server.begin();
 }
 void loop() {
+if (false) {
 WiFiClient client = server.available();   
   if (client) {                             // If a new client connects,
     String currentLine = "";                // make a String to hold incoming data from the client
@@ -71,6 +73,18 @@ WiFiClient client = server.available();
     // Close the connection
     client.stop();
   }
+  }
+  else {
+    if(WiFi.status() == WL_CONNECTED) {
+      WiFiClient client;
+      HTTPClient http;
+      http.begin(client, servername);
+      http.addHeader("Content-Type","application/x-www-form-urlencoded");
+      String httpSendData = "lengte rol 1" + afstand(count);
+      int httpResponseCode = http.POST(httpSendData);
+      http.end();
+  }
+}
 }
 
 String afstand(int revolutions) {
