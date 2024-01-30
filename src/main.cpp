@@ -6,9 +6,10 @@
 WiFiServer server(80);
 String header;
 int count = 0;
+int prevcount = -1;
 unsigned long interrupt_time;
 unsigned long prev_interrupt_time;
-String servername = "https://webhook.site/8b447697-3f95-4b4c-baee-eeb314c8570f";
+String servername = "http://192.168.137.1:1880/update-sensor";
 String afstand(int revolutions);
 const char* ssid     = "Test";
 const char* password = "123456789";
@@ -23,7 +24,7 @@ void IRAM_ATTR isr() {
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   pinMode (32,INPUT);
   attachInterrupt(32, isr, RISING);
   WiFi.begin(ssid,password);
@@ -75,16 +76,21 @@ WiFiClient client = server.available();
   }
   }
   else {
-    if(WiFi.status() == WL_CONNECTED) {
-      WiFiClient client;
-      HTTPClient http;
-      http.begin(client, servername);
-      http.addHeader("Content-Type","application/x-www-form-urlencoded");
-      String httpSendData = "lengte rol 1" + afstand(count);
-      int httpResponseCode = http.POST(httpSendData);
-      http.end();
+     if(WiFi.status() == WL_CONNECTED) {
+       WiFiClient client;
+       HTTPClient http;
+       // Serial.println(client);
+      if (count != prevcount) {
+        http.begin(client, servername);
+        http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+        String httpSendData = "lengte rol 1: " + afstand(count);
+        int httpResponseCode = http.POST(httpSendData);
+        Serial.println(httpResponseCode);
+        http.end();
+        prevcount = count;
+       }
+    }
   }
-}
 }
 
 String afstand(int revolutions) {
@@ -95,6 +101,7 @@ String afstand(int revolutions) {
     char str[9];
     int buffer = lengterol - (DIAMETER * 3.1415 * revolutions);
     sprintf(str, "%d", buffer);
+   // Serial.println(str);
     return (str);
   }
 }
