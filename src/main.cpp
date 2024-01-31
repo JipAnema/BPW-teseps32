@@ -1,7 +1,10 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#define DIAMETER 40
+#include <Arduino_JSON.h>
+#define DIAMETER 39
+#define MAGNEETperREV 0.5  // doe 1/aantalmagneten en donder het hier neer
+int printernummer = 1;
 
 WiFiServer server(80);
 String header;
@@ -10,98 +13,94 @@ int prevcount = -1;
 unsigned long interrupt_time;
 unsigned long prev_interrupt_time;
 String servername = "http://192.168.137.1:1880/update-sensor";
+const char* getservername = "http://192.168.137.1:1880/get-sensor";
 String afstand(int revolutions);
+String maxlengte;
 const char* ssid     = "Test";
 const char* password = "123456789";
-unsigned int lengterol = 250000;
+unsigned int lengterol = 250000;    //Let op! mm
+float actlengte = lengterol;
+float sensorReadingsArr[9];
 
 void IRAM_ATTR isr() {
   interrupt_time = millis();
-  if (interrupt_time - prev_interrupt_time > 250) {
+  if (interrupt_time - prev_interrupt_time > 150) {
     count++;
     prev_interrupt_time = interrupt_time;
   }
 }
 
+String httpGETRequest(const char* serverName) {
+  WiFiClient client;
+  HTTPClient http;
+  http.begin(client, serverName);
+  int httpResponseCode = http.GET();
+  String payload = "{}"; 
+  if (httpResponseCode>0) {
+       payload = http.getString();
+  }
+  else {
+    lengterol = 250000;
+  }
+  http.end();
+  return payload;
+}
+
+
 void setup() {
   Serial.begin(9600);
-  pinMode (32,INPUT);
+  pinMode (32,INPUT_PULLUP);
   attachInterrupt(32, isr, RISING);
   WiFi.begin(ssid,password);
- // WiFi.softAP(ssid,password);
- // IPAddress IP = WiFi.softAPIP();
- // Serial.println(IP);
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
     Serial.print(".");
   }
+  if (WiFi.status() == WL_CONNECTED) {
+    maxlengte = httpGETRequest(getservername);
+    JSONVar myObject = JSON.parse(maxlengte);
+    if (JSON.typeof(myObject) == "undefined") {
+      lengterol = 250000;
+      actlengte = 250000;
+    }
+    else {
+     JSONVar keys = myObject.keys();
+     for (int i = 0; i < keys.length(); i++) {
+       JSONVar value = myObject[keys[i]];
+       sensorReadingsArr[i] = double(value);
+     } 
+     lengterol = sensorReadingsArr[printernummer-1];
+     actlengte = lengterol;
+   }
+  }
   server.begin();
 }
 void loop() {
-if (false) {
-WiFiClient client = server.available();   
-  if (client) {                             // If a new client connects,
-    String currentLine = "";                // make a String to hold incoming data from the client
-    while (client.connected()) {            // loop while the client's connected
-      if (client.available()) {             // if there's bytes to read from the client,
-        char c = client.read();             // read a byte, then
-        header += c;
-        if (c == '\n') {                    // if the byte is a newline character
-          if (currentLine.length() == 0) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-type:text/html");
-            client.println("Connection: close");
-            client.println();
-            client.println("<!DOCTYPE html><html>");
-            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-            client.println("<link rel=\"icon\" href=\"data:,\">");
-            client.println("<body><h1>ESP32 Web Server</h1>");
-            client.println(afstand(count));
-            client.println("</body></html>");
-            client.println();
-            break;
-          } else { // if you got a newline, then clear currentLine
-            currentLine = "";
-          }
-        } else if (c != '\r') {  // if you got anything else but a carriage return character,
-          currentLine += c;      // add it to the end of the currentLine
-        }
-      }
-    }
-    // Clear the header variable
-    header = "";
-    // Close the connection
-    client.stop();
-  }
-  }
-  else {
      if(WiFi.status() == WL_CONNECTED) {
        WiFiClient client;
        HTTPClient http;
-       // Serial.println(client);
       if (count != prevcount) {
         http.begin(client, servername);
         http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-        String httpSendData = "lengte rol 1: " + afstand(count);
+        String httpSendData = "lengte="+afstand(count)+"&rolnummer=" + printernummer;
         int httpResponseCode = http.POST(httpSendData);
-        Serial.println(httpResponseCode);
+       //Voeg hier dan error handeling toe, maar fuck dat
         http.end();
         prevcount = count;
        }
     }
   }
-}
 
 String afstand(int revolutions) {
-  if (lengterol <= 0 || lengterol > 250000) {
+  if (actlengte <= (DIAMETER * 3.1415 * MAGNEETperREV) || actlengte > lengterol) {
     return ("error");
   }
   else {
-    char str[9];
-    int buffer = lengterol - (DIAMETER * 3.1415 * revolutions);
-    sprintf(str, "%d", buffer);
-   // Serial.println(str);
+    char str[20];
+    actlengte = lengterol - ((DIAMETER * 3.1415 * revolutions) * MAGNEETperREV);
+    float buffer = ((lengterol- (DIAMETER * 3.1415 * revolutions * MAGNEETperREV))/1000);
+    sprintf(str, "%.1f", buffer);
     return (str);
   }
 }
