@@ -24,7 +24,7 @@ float sensorReadingsArr[9];
 
 void IRAM_ATTR isr() {
   interrupt_time = millis();
-  if (interrupt_time - prev_interrupt_time > 150) {
+  if (interrupt_time - prev_interrupt_time > 100) {
     count++;
     prev_interrupt_time = interrupt_time;
   }
@@ -76,6 +76,7 @@ void setup() {
   }
   server.begin();
 }
+
 void loop() {
      if(WiFi.status() == WL_CONNECTED) {
        WiFiClient client;
