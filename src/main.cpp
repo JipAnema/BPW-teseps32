@@ -5,6 +5,7 @@
 #include <Preferences.h>
 #define DIAMETER 53
 #define MAGNEETperREV 0.5  // doe 1/aantalmagneten en donder het hier neer
+#undef TESTRONDE
 int printernummer = 1;
 
 WiFiServer server(80);
@@ -45,7 +46,7 @@ void setup() {
   Serial.begin(9600);  
   preferences.begin("counter", false);
   count = preferences.getInt("count",0);
-  lengterol = preferences.getInt("maxlengte",250);
+  lengterol = preferences.getInt("maxlengte",250000);
   preferences.end();
   pinMode (32,INPUT_PULLUP);
   attachInterrupt(32, isr, RISING);
@@ -58,6 +59,10 @@ void setup() {
   }
   pinMode (33,INPUT_PULLUP);
   server.begin();
+  #ifdef TESTRONDE
+    GetNewLength = true;
+    count = 0;
+  #endif
 }
 
 void loop() {
@@ -72,6 +77,16 @@ void loop() {
   if(WiFi.status() == WL_CONNECTED) {
    WiFiClient client;
    HTTPClient http;
+   #ifdef TESTRONDE
+    count = count + random(3,12);
+    delay(400);
+    if(printernummer <= 5 && printernummer > 1) {
+      printernummer++;
+    }
+    else {
+      printernummer = 2;
+    }
+   #endif
     if (count != prevcount) {
       http.begin(client, servername);
       http.addHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -88,7 +103,11 @@ void loop() {
 }
 
 String afstand(int revolutions) {
-  if (actlengte <= (DIAMETER * 3.1415 * MAGNEETperREV) || actlengte > lengterol) {
+  if ( actlengte <= (DIAMETER * 3.1415 * MAGNEETperREV) || actlengte > lengterol) {
+    #ifdef TESTRONDE
+      GetNewLength = true;
+      count = 0;
+    #endif 
     return ("error");
   }
   else {
@@ -129,6 +148,9 @@ int GetMaxLengte () {
        JSONVar value = myObject[keys[i]];
        sensorReadingsArr[i] = double(value);
      }
+     #ifdef TESTRONDE
+        return sensorReadingsArr[1];
+      #endif
      return sensorReadingsArr[printernummer-1];
    }
   }
