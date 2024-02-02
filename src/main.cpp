@@ -3,7 +3,7 @@
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
 #include <Preferences.h>
-#define DIAMETER 53
+#define DIAMETER 52.6
 #define MAGNEETperREV 0.5  // doe 1/aantalmagneten en donder het hier neer
 #undef TESTRONDE
 int printernummer = 1;
@@ -22,7 +22,7 @@ int GetMaxLengte();
 String maxlengte;
 const char* ssid     = "Test";
 const char* password = "123456789";
-unsigned int lengterol = 250000;    //Let op! mm
+unsigned int lengterol;    //Let op! mm
 float actlengte = lengterol;
 float sensorReadingsArr[9];
 bool GetNewLength = false;
@@ -47,6 +47,7 @@ void setup() {
   preferences.begin("counter", false);
   count = preferences.getInt("count",0);
   lengterol = preferences.getInt("maxlengte",250000);
+  actlengte = lengterol;
   preferences.end();
   pinMode (32,INPUT_PULLUP);
   attachInterrupt(32, isr, RISING);
@@ -63,6 +64,8 @@ void setup() {
     GetNewLength = true;
     count = 0;
   #endif
+  Serial.println(count);
+  Serial.println(lengterol);
 }
 
 void loop() {
@@ -97,6 +100,7 @@ void loop() {
       prevcount = count;
       preferences.begin("counter", false);
       preferences.putInt("count", count);
+      Serial.println(preferences.getInt("count"));
       preferences.end();
     }
   }
